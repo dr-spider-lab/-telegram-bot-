@@ -1,59 +1,36 @@
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
-import google.generativeai as genai
 import os
-from flask import Flask
-from threading import Thread
 
-# ═══════════════════════════════════════
-# الإعدادات
-# ═══════════════════════════════════════
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 BOT_PERSONALITY = "أنت مساعد ودي. رد باختصار وبالعربي."
 
-# ═══════════════════════════════════════
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
-chat_history = {}
+# ردود جاهزة (بدل AI)
+REPLIES = {
+    "اهلا": "أهلاً بيك! 🌟",
+    "مرحبا": "مرحباً! أنا بوت مساعد. هرد عليك في أقرب وقت! 🤖",
+    "ازيك": "أنا كويس، شكراً! إنت عامل إيه؟",
+    "hello": "Hello! I'm a bot assistant. I'll reply soon! 🤖",
+    "hi": "Hi there! 👋",
+}
 
-# Flask app عشان Render
-app_flask = Flask(__name__)
-
-@app_flask.route('/')
-def home():
-    return "🤖 البوت شغال!"
-
-def run_flask():
-    app_flask.run(host='0.0.0.0', port=10000)
-
-# ═══════════════════════════════════════
-# البوت
-# ═══════════════════════════════════════
 async def smart_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    user_message = update.message.text
+    user_message = update.message.text.lower().strip()
     
-    if user_id not in chat_history:
-        chat_history[user_id] = model.start_chat(history=[])
-        chat_history[user_id].send_message(BOT_PERSONALITY)
+    # دور على رد جاهز
+    for key, reply in REPLIES.items():
+        if key in user_message:
+            await update.message.reply_text(reply)
+            return
     
-    try:
-        response = chat_history[user_id].send_message(user_message)
-        await update.message.reply_text(response.text)
-    except:
-        await update.message.reply_text("عذراً، حدث خطأ!")
+    # لو مفيش رد جاهز
+    await update.message.reply_text("شكراً لرسالتك! هرد عليك في أقرب وقت ممكن. ✅")
 
 def main():
-    # شغل Flask في thread منفصل
-    Thread(target=run_flask).start()
-    
-    # شغل البوت
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, smart_reply))
-    
-    print("🤖 البوت شغال 24/7!")
-    application.run_polling()
+    app = Application.builder().token(TELEGRAM_TOKEN).build()
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, smart_reply))
+    print("🤖 البوت شغال!")
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
